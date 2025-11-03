@@ -96,8 +96,8 @@ export default async (req, res) => {
             experience: data.experience,
             inquiryId: data.inquiryId
         },
-        redirect_url: `https://tadrib.ma/payment-success`, 
-        error_url: `https://tadrib.ma/payment-failed`     
+        redirect_url: `http://127.0.0.1:5501/index-00.html/#payment-success`, 
+        error_url: `http://127.0.0.1:5501/index-00.html/#payment-failed`      
     }, {
         headers: {
             // 'Authorization': `Basic ${base64Keys}`, // قد لا تكون مطلوبة إذا كان المفتاح في البودي
