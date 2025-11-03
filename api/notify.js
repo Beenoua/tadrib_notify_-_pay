@@ -212,6 +212,7 @@ export default async (req, res) => {
       ${t.phone} ${data.clientPhone}
       ${t.email} ${data.clientEmail}
       -----------------------------------
+      ${t.rsv_id} ${data.inquiryId}
       ${t.status} ${data.paymentStatus}
       ${t.tx_id} ${data.transactionId}
       ${t.time} ${data.timestamp}
@@ -237,4 +238,5 @@ export default async (req, res) => {
     res.status(200).json({ result: 'error', message: 'Webhook received but failed to process internally.', details: error.toString() });
   }
 };
+
 
