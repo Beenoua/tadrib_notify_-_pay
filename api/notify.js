@@ -25,7 +25,8 @@ const telegramTranslations = {
     email: "**الإيميل:**",
     time: "**الوقت:**",
     status: "**الحالة:**",
-    tx_id: "**رقم المعاملة:**"
+    tx_id: "**رقم المعاملة:**",
+    rsv_id: "**معرف الاستفسار:**"
   },
   fr: {
     title: "✅ **Nouvelle Réservation Payée (Tadrib.ma)** 💳",
@@ -37,7 +38,8 @@ const telegramTranslations = {
     email: "**E-mail:**",
     time: "**Heure:**",
     status: "**Statut:**",
-    tx_id: "**ID Transaction:**"
+    tx_id: "**ID Transaction:**",
+    rsv_id: "**ID de requête:**"
   },
   en: {
     title: "✅ **New Paid Booking (Tadrib.ma)** 💳",
@@ -49,7 +51,8 @@ const telegramTranslations = {
     email: "**Email:**",
     time: "**Time:**",
     status: "**Status:**",
-    tx_id: "**Transaction ID:**"
+    tx_id: "**Transaction ID:**",
+    rsv_id: "**inquiry Id:**"
   }
 };
 
@@ -238,5 +241,6 @@ export default async (req, res) => {
     res.status(200).json({ result: 'error', message: 'Webhook received but failed to process internally.', details: error.toString() });
   }
 };
+
 
 
