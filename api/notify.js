@@ -70,6 +70,42 @@ async function authGoogleSheets() {
 }
 
 /**
+ * [جديد] دالة مساعدة لتنسيق التوقيت
+ * تحول "2025-11-03T05:03:57.000000Z" إلى "2025-11-03 06 h 03 min 57 s" (بتوقيت المغرب)
+ */
+function formatTimestamp(isoString) {
+  try {
+    const date = new Date(isoString);
+    
+    // توقيت المغرب (Africa/Casablanca) هو UTC+1
+    const options = {
+      timeZone: 'Africa/Casablanca',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+
+    // نستخدم "sv-SE" للحصول على تنسيق YYYY-MM-DD HH:MM:SS
+    const formatted = new Intl.DateTimeFormat('sv-SE', options).format(date);
+    
+    // "2025-11-03 06:03:57" -> "2025-11-03 06 h 03 min 57 s"
+    const [datePart, timePart] = formatted.split(' ');
+    const [hour, minute, second] = timePart.split(':');
+    
+    return `${datePart} ${hour} h ${minute} min ${second} s`;
+
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    // إرجاع التوقيت الأصلي في حالة حدوث خطأ
+    return isoString;
+  }
+}
+
+/**
  * هذه هي الدالة الرئيسية التي تستقبل الطلبات (Webhooks)
  */
 export default async (req, res) => {
@@ -87,16 +123,8 @@ export default async (req, res) => {
     
     // 1. استقبال البيانات الخام من YouCanPay Webhook
     const rawBody = req.body;
-
-    // --- [تمت الإزالة] لم نعد بحاجة لرسالة الـ Debug ---
-    // try {
-    //   await bot.sendMessage(TELEGRAM_CHAT_ID, `--- DEBUG: RAW WEBHOOK --- \n${JSON.stringify(rawBody, null, 2)}`);
-    // } catch (debugError) {
-    //   console.error("Error sending debug message:", debugError);
-    // }
     
     // --- 2. [تصحيح] التحقق من الحدث الصحيح ---
-    // بناءً على رسالة الـ DEBUG، نحن نبحث عن "event_name"
     if (rawBody.event_name !== 'transaction.paid') {
       return res.status(200).json({ result: 'success', message: 'Ignoring non-paid status.' });
     }
@@ -110,9 +138,9 @@ export default async (req, res) => {
     }
 
     // --- 4. [تصحيح] "ترجمة" بيانات YouCanPay إلى الهيكل الذي نريده ---
-    // هذا هو الإصلاح بناءً على رسالة الـ DEBUG
+    // [تعديل]: استخدام الدالة الجديدة لتنسيق التوقيت
     const data = {
-      timestamp: payload.transaction.created_at || new Date().toLocaleString('fr-CA'),
+      timestamp: formatTimestamp(payload.transaction.created_at || new Date().toISOString()),
       inquiryId: payload.transaction.order_id || payload.metadata.inquiryId,
       clientName: payload.customer.name,
       clientEmail: payload.customer.email,
@@ -155,7 +183,7 @@ export default async (req, res) => {
     }
     
     await sheet.addRow({
-      "Timestamp": data.timestamp,
+      "Timestamp": data.timestamp, // سيتم حفظه بالتنسيق الجديد
       "Inquiry ID": data.inquiryId,
       "Full Name": data.clientName,
       "Email": data.clientEmail,
