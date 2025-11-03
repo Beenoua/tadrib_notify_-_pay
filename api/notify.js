@@ -14,6 +14,7 @@ let doc;
 
 // --- ترجمات التيليغرام ---
 const telegramTranslations = {
+  // ... (نفس الترجمات، لا تغيير)
   ar: {
     title: "✅ **حجز مدفوع جديد (Tadrib.ma)** 💳",
     course: "**الدورة:**",
@@ -73,14 +74,6 @@ async function authGoogleSheets() {
  */
 export default async (req, res) => {
   
-  // --- إعدادات CORS (جيدة للطلبات من المتصفح، لكن الـ Webhook لا يحتاجها) ---
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
   // --- الحماية: قبول طلبات POST فقط ---
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
@@ -92,26 +85,40 @@ export default async (req, res) => {
     // تهيئة البوت
     bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
     
-    // 1. استقبال البيانات من YouCanPay Webhook
-    const payload = req.body;
+    // 1. استقبال البيانات الخام من YouCanPay Webhook
+    const rawBody = req.body;
 
-    // --- 2. التحقق من البيانات الأساسية ---
-    // إذا لم تكن عملية دفع ناجحة، تجاهلها وأرسل رداً ناجحاً (200)
+    // --- !! خطوة Debug: إرسال البيانات الخام إلى Telegram لرؤية هيكلها !! ---
+    // هذا سيساعدنا إذا كانت لا تزال "undefined"
+    try {
+      await bot.sendMessage(TELEGRAM_CHAT_ID, `--- DEBUG: RAW WEBHOOK --- \n${JSON.stringify(rawBody, null, 2)}`);
+    } catch (debugError) {
+      console.error("Error sending debug message:", debugError);
+    }
+    // --- نهاية خطوة Debug ---
+
+
+    // --- 2. [الحل] محاولة "فك المغلف" عن البيانات ---
+    // يبحث الكود عن البيانات في 3 أماكن محتملة:
+    // 1. req.body.payload (شائع في Webhooks)
+    // 2. req.body.data (شائع أيضاً)
+    // 3. req.body (إذا كانت البيانات في المستوى الأعلى)
+    const payload = rawBody.payload || rawBody.data || rawBody;
+    
+    // --- 3. التحقق من البيانات الأساسية ---
     if (payload.status !== 'paid') {
       return res.status(200).json({ result: 'success', message: 'Ignoring non-paid status.' });
     }
 
-    // إذا كانت البيانات الأساسية مفقودة
     if (!payload.metadata || !payload.customer || !payload.id) {
       console.error('Invalid Webhook payload: Missing metadata, customer, or id', payload);
-      // أرسل 200 حتى لا يعيد YouCanPay إرسال الـ Webhook الخاطئ
       return res.status(200).json({ result: 'error', message: 'Ignoring invalid payload.' });
     }
 
-    // --- 3. [الحل] "ترجمة" بيانات YouCanPay إلى الهيكل الذي نريده ---
+    // --- 4. "ترجمة" بيانات YouCanPay إلى الهيكل الذي نريده ---
     const data = {
       timestamp: payload.created_at || new Date().toLocaleString('fr-CA'),
-      inquiryId: payload.order_id || payload.metadata.inquiryId, // order_id هو الأفضل
+      inquiryId: payload.order_id || payload.metadata.inquiryId,
       clientName: payload.customer.name,
       clientEmail: payload.customer.email,
       clientPhone: payload.customer.phone,
@@ -119,21 +126,19 @@ export default async (req, res) => {
       qualification: payload.metadata.qualification,
       experience: payload.metadata.experience,
       paymentStatus: payload.status,
-      transactionId: payload.id, // هذا هو رقم المعاملة
-      currentLang: 'fr', // الافتراضي للإشعارات
-      // بيانات UTM غير مدعومة في YouCanPay metadata، لذا ستكون فارغة
+      transactionId: payload.id,
+      currentLang: 'fr',
       utm_source: '',
       utm_medium: '',
       utm_campaign: '',
       utm_term: '',
       utm_content: ''
     };
-    // --- نهاية الحل ---
     
     const lang = data.currentLang;
     const t = telegramTranslations[lang];
 
-    // --- 4. المهمة الأولى: حفظ البيانات في Google Sheets ---
+    // --- 5. المهمة الأولى: حفظ البيانات في Google Sheets ---
     await authGoogleSheets();
     
     let sheet = doc.sheetsByTitle["Leads"];
@@ -141,12 +146,11 @@ export default async (req, res) => {
         sheet = await doc.addSheet({ title: "Leads" });
     }
 
-    // هذه هي العناوين التي تتطابق مع كود Google Apps Script الذي أرسلته
     const headers = [
       "Timestamp", "Inquiry ID", "Full Name", "Email", "Phone Number",
       "Selected Course", "Qualification", "Experience",
       "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-      "Payment Status", "Transaction ID" // أضفنا الحقول الجديدة
+      "Payment Status", "Transaction ID"
     ];
 
     await sheet.loadHeaderRow();
@@ -155,7 +159,6 @@ export default async (req, res) => {
         await sheet.setHeaderRow(headers);
     }
     
-    // استخدام كائن "data" المترجم
     await sheet.addRow({
       "Timestamp": data.timestamp,
       "Inquiry ID": data.inquiryId,
@@ -174,7 +177,7 @@ export default async (req, res) => {
       "Transaction ID": data.transactionId
     });
 
-    // --- 5. المهمة الثانية: إرسال إشعار فوري عبر Telegram ---
+    // --- 6. المهمة الثانية: إرسال إشعار فوري عبر Telegram ---
     const message = `
       ${t.title}
       -----------------------------------
@@ -193,25 +196,21 @@ export default async (req, res) => {
     
     await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'Markdown' });
 
-    // --- 6. إرسال رد "نجاح" إلى YouCanPay ---
-    // هذا مهم جداً ليتحول الحقل "STATUT" في سجل الـ Webhook إلى "Succès"
+    // --- 7. إرسال رد "نجاح" إلى YouCanPay ---
     res.status(200).json({ result: 'success', message: 'Webhook received and processed.' });
 
   } catch (error) {
-    // إذا حدث خطأ (مثل خطأ في متغيرات البيئة)، قم بتسجيله
     console.error('Error processing Webhook:', error);
     
     try {
       if (!bot) {
         bot = new TelegramBot(TELEGRAM_BOT_TOKEN);
       }
-      // إرسال إشعار خطأ إلى Telegram
       await bot.sendMessage(TELEGRAM_CHAT_ID, `❌ حدث خطأ في معالجة Webhook:\n${error.message}`);
     } catch (telegramError) {
       console.error('CRITICAL: Failed to send error to Telegram:', telegramError);
     }
     
-    // إرسال رد خطأ (سيجعل YouCanPay يعيد المحاولة)
-    res.status(500).json({ result: 'error', message: 'Internal Server Error', details: error.toString() });
+    res.status(200).json({ result: 'error', message: 'Webhook received but failed to process internally.', details: error.toString() });
   }
 };
