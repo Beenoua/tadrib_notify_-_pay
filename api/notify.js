@@ -88,45 +88,40 @@ export default async (req, res) => {
     // 1. استقبال البيانات الخام من YouCanPay Webhook
     const rawBody = req.body;
 
-    // --- !! خطوة Debug: إرسال البيانات الخام إلى Telegram لرؤية هيكلها !! ---
-    // هذا سيساعدنا إذا كانت لا تزال "undefined"
-    try {
-      await bot.sendMessage(TELEGRAM_CHAT_ID, `--- DEBUG: RAW WEBHOOK --- \n${JSON.stringify(rawBody, null, 2)}`);
-    } catch (debugError) {
-      console.error("Error sending debug message:", debugError);
-    }
-    // --- نهاية خطوة Debug ---
-
-
-    // --- 2. [الحل] محاولة "فك المغلف" عن البيانات ---
-    // يبحث الكود عن البيانات في 3 أماكن محتملة:
-    // 1. req.body.payload (شائع في Webhooks)
-    // 2. req.body.data (شائع أيضاً)
-    // 3. req.body (إذا كانت البيانات في المستوى الأعلى)
-    const payload = rawBody.payload || rawBody.data || rawBody;
+    // --- [تمت الإزالة] لم نعد بحاجة لرسالة الـ Debug ---
+    // try {
+    //   await bot.sendMessage(TELEGRAM_CHAT_ID, `--- DEBUG: RAW WEBHOOK --- \n${JSON.stringify(rawBody, null, 2)}`);
+    // } catch (debugError) {
+    //   console.error("Error sending debug message:", debugError);
+    // }
     
-    // --- 3. التحقق من البيانات الأساسية ---
-    if (payload.status !== 'paid') {
+    // --- 2. [تصحيح] التحقق من الحدث الصحيح ---
+    // بناءً على رسالة الـ DEBUG، نحن نبحث عن "event_name"
+    if (rawBody.event_name !== 'transaction.paid') {
       return res.status(200).json({ result: 'success', message: 'Ignoring non-paid status.' });
     }
 
-    if (!payload.metadata || !payload.customer || !payload.id) {
-      console.error('Invalid Webhook payload: Missing metadata, customer, or id', payload);
-      return res.status(200).json({ result: 'error', message: 'Ignoring invalid payload.' });
+    // --- 3. [تصحيح] استخراج "payload" بشكل صحيح ---
+    const payload = rawBody.payload;
+    
+    if (!payload || !payload.metadata || !payload.customer || !payload.transaction) {
+      console.error('Invalid Webhook payload: Missing metadata, customer, or transaction', payload);
+      return res.status(200).json({ result: 'error', message: 'Ignoring invalid payload structure.' });
     }
 
-    // --- 4. "ترجمة" بيانات YouCanPay إلى الهيكل الذي نريده ---
+    // --- 4. [تصحيح] "ترجمة" بيانات YouCanPay إلى الهيكل الذي نريده ---
+    // هذا هو الإصلاح بناءً على رسالة الـ DEBUG
     const data = {
-      timestamp: payload.created_at || new Date().toLocaleString('fr-CA'),
-      inquiryId: payload.order_id || payload.metadata.inquiryId,
+      timestamp: payload.transaction.created_at || new Date().toLocaleString('fr-CA'),
+      inquiryId: payload.transaction.order_id || payload.metadata.inquiryId,
       clientName: payload.customer.name,
       clientEmail: payload.customer.email,
       clientPhone: payload.customer.phone,
       selectedCourse: payload.metadata.course,
       qualification: payload.metadata.qualification,
       experience: payload.metadata.experience,
-      paymentStatus: payload.status,
-      transactionId: payload.id,
+      paymentStatus: 'paid', // نحن نعلم أنها 'paid' بسبب التحقق أعلاه
+      transactionId: payload.transaction.id, // هذا هو رقم المعاملة
       currentLang: 'fr',
       utm_source: '',
       utm_medium: '',
@@ -214,3 +209,4 @@ export default async (req, res) => {
     res.status(200).json({ result: 'error', message: 'Webhook received but failed to process internally.', details: error.toString() });
   }
 };
+
