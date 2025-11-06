@@ -12,7 +12,8 @@ const courseData = {
     pmp: { originalPrice: 2800 },
     planning: { originalPrice: 2800 },
     qse: { originalPrice: 2450 },
-    softskills: { originalPrice: 1700 }
+    softskills: { originalPrice: 1700 },
+    other: { originalPrice: 199 }
 };
 const discountPercentage = 35; // نسبة الخصم
 
