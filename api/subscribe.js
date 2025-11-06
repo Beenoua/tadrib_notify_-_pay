@@ -16,7 +16,9 @@ export default async (req, res) => {
       'http://127.0.0.1:5500',
       'http://127.0.0.1:5501',
       'http://localhost:5500',
-      'http://localhost:5501' // [!!] إضافة احترازية
+      'http://localhost:5501', // [!!] إضافة احترازية
+        'http://127.0.0.1:5502',
+      'http://localhost:5502',
     ];
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
@@ -74,3 +76,4 @@ export default async (req, res) => {
         res.status(500).json({ result: 'error', message: error.message || 'Internal server error' });
     }
 };
+
