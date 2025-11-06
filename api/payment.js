@@ -30,6 +30,7 @@ export default async (req, res) => {
     'https://tadrib.ma', 
     'https://tadrib.jaouadouarh.com', 
     'https://tadrib-pay.jaouadouarh.com',
+    'https://tadrib-ma.jaouadouarh.com',
     'http://localhost:3000', // للتجارب المحلية
     'http://127.0.0.1:5500', // للتجارب المحلية
     'http://127.0.0.1:5501' // إضافة منفذ آخر للتجارب
