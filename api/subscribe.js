@@ -19,6 +19,14 @@ export default async (req, res) => {
       'http://localhost:5501', // [!!] إضافة احترازية
         'http://127.0.0.1:5502',
       'http://localhost:5502',
+    'http://127.0.0.1:5503',
+    'http://127.0.0.1:5504',
+    'http://127.0.0.1:5505',
+    'http://127.0.0.1:5506',
+    'http://127.0.0.1:5507',
+    'http://127.0.0.1:5508',
+    'http://127.0.0.1:5509',
+    'http://127.0.0.1:55010'
     ];
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
@@ -76,4 +84,5 @@ export default async (req, res) => {
         res.status(500).json({ result: 'error', message: error.message || 'Internal server error' });
     }
 };
+
 
